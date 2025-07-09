@@ -1,6 +1,6 @@
 from ._device import Device
 from ._state import InputStateManager
-from .driver import Interception
+from .interception import Interception
 from .hotkey import HotkeyManager
 from .input import Keyboard, Mouse
 

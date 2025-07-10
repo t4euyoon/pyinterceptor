@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyinterceptor"
+version = "0.1.0"
+description = "Python wrapper for Interception driver with hotkey support"
+authors = [
+    { name = "t4eyoon", email = "utu9201@gmail.com" }
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.7"
+dependencies = [
+    # List runtime dependencies here
+]
+
+[project.urls]
+Homepage = "https://github.com/t4eyoon/pyinterceptor"
+Repository = "https://github.com/t4eyoon/pyinterceptor"

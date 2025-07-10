@@ -1,8 +1,9 @@
 import random
 import time
 from typing import Sequence, Literal
-from . import Interception, Device, InputStateManager
-from ..defs import Key, KeyState, KeyStroke
+
+from pyinterceptor.core import Interception, Device, InputStateManager
+from pyinterceptor.defs import Key, KeyState, KeyStroke
 
 # Type alias for delay mode
 DelayMode = Literal["fixed", "humanic"]

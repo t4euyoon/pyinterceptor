@@ -2,10 +2,8 @@ import random
 import time
 from typing import Literal, Tuple
 
-from defs import MouseFlag
-from pyinterceptor import MouseButton
-from . import Interception, Device, InputStateManager
-from ..defs import MouseStroke, MouseState
+from pyinterceptor.core import Interception, Device, InputStateManager
+from pyinterceptor.defs import MouseStroke, MouseState, MouseButton, MouseFlag
 
 # Type alias for delay mode
 DelayMode = Literal["fixed", "humanic"]

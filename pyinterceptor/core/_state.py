@@ -1,11 +1,10 @@
 from typing import Set, Union
 
-from pyinterceptor import MouseButton, MouseState
-from ..defs import Key, KeyStroke, MouseStroke
-from ..utils.decorators import singleton
+from pyinterceptor.defs import Key, KeyStroke, MouseStroke, MouseButton, MouseState
+from pyinterceptor.utils import decorators
 
 
-@singleton
+@decorators.singleton
 class InputStateManager:
     """Manages the current state of pressed keys and mouse buttons,
     distinguishing between hardware and software input sources.

@@ -1,6 +1,6 @@
 from ctypes import Structure, c_ushort, c_ulong, c_long
 
-from . import Key, KeyState, MouseState, MouseFlag
+from pyinterceptor.defs import Key, KeyState, MouseState, MouseFlag
 
 
 class KeyStroke(Structure):
@@ -27,12 +27,12 @@ class KeyStroke(Structure):
         0xE100: KeyState.E1,
     }
 
-    def __init__(self, code: Key | int, flags: KeyState | int = KeyState.DOWN, information: int = 0):
+    def __init__(self, code: Key | int = 0, flags: KeyState | int = KeyState.DOWN, information: int = 0):
         """
         Initializes a KeyStroke structure.
 
         Args:
-            code (Key | int): Key code including extension prefix.
+            code (Key | int, optional): Key code including extension prefix.
             flags (KeyState | int, optional): Key state flags. Defaults to KeyState.DOWN.
             information (int, optional): Information field. 0 indicates hardware. Defaults to 0.
         """

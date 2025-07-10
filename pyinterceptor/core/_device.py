@@ -2,10 +2,9 @@ import ctypes
 import ctypes.wintypes as wintypes
 from dataclasses import dataclass
 
-from exceptions import DeviceIoError, DeviceNotFoundError, UnsupportedDeviceError
-from ._ioctl import IOCTL_READ, IOCTL_WRITE, IOCTL_SET_FILTER, IOCTL_SET_EVENT, IOCTL_GET_HARDWARE_ID, IOCTL_GET_FILTER, \
-    IOCTL_GET_PRECEDENCE, IOCTL_SET_PRECEDENCE
-from ..defs import FilterKeyState, FilterMouseState, KeyStroke, MouseStroke
+from pyinterceptor.core import _ioctl
+from pyinterceptor.defs import FilterKeyState, FilterMouseState, KeyStroke, MouseStroke
+from pyinterceptor.exceptions import DeviceIoError, DeviceNotFoundError, UnsupportedDeviceError
 
 # Win32 API function bindings
 CreateFile = ctypes.windll.kernel32.CreateFileW
@@ -102,7 +101,7 @@ class Device:
         Raises:
             DeviceIoError: If the event cannot be bound.
         """
-        result = self._device_io_control(ioctl_code=IOCTL_SET_EVENT, in_buffer=ctypes.c_void_p(self.event))
+        result = self._device_io_control(ioctl_code=_ioctl.SET_EVENT, in_buffer=ctypes.c_void_p(self.event))
         if not result.success:
             raise DeviceIoError(f"Failed to bind event for {self.device_path}")
 
@@ -131,7 +130,7 @@ class Device:
         """
         buffer_size = 512
         out_buffer = (ctypes.c_wchar * buffer_size)()
-        result = self._device_io_control(ioctl_code=IOCTL_GET_HARDWARE_ID, out_buffer=out_buffer)
+        result = self._device_io_control(ioctl_code=_ioctl.GET_HARDWARE_ID, out_buffer=out_buffer)
 
         if not result.success:
             raise DeviceIoError(f"Failed to get hardware ID for {self.device_path}")
@@ -150,7 +149,7 @@ class Device:
         """
         out_buffer = ctypes.c_ushort()
 
-        result = self._device_io_control(ioctl_code=IOCTL_GET_FILTER, out_buffer=out_buffer)
+        result = self._device_io_control(ioctl_code=_ioctl.GET_FILTER, out_buffer=out_buffer)
         if not result.success:
             raise DeviceIoError(f"Failed to get filter for {self.device_path}")
 
@@ -168,7 +167,7 @@ class Device:
         Raises:
             DeviceIoError: If setting the filter fails.
         """
-        result = self._device_io_control(ioctl_code=IOCTL_SET_FILTER, in_buffer=ctypes.c_ushort(value))
+        result = self._device_io_control(ioctl_code=_ioctl.SET_FILTER, in_buffer=ctypes.c_ushort(value))
         if not result.success:
             raise DeviceIoError(f"Failed to set filter for {self.device_path}")
 
@@ -185,7 +184,7 @@ class Device:
         """
         out_buffer = ctypes.c_ushort()
 
-        result = self._device_io_control(ioctl_code=IOCTL_GET_PRECEDENCE, out_buffer=out_buffer)
+        result = self._device_io_control(ioctl_code=_ioctl.GET_PRECEDENCE, out_buffer=out_buffer)
         if not result.success:
             raise DeviceIoError(f"Failed to get precedence for {self.device_path}")
 
@@ -203,7 +202,7 @@ class Device:
         Raises:
             DeviceIoError: If setting the precedence fails.
         """
-        result = self._device_io_control(ioctl_code=IOCTL_SET_PRECEDENCE, in_buffer=ctypes.c_ushort(value))
+        result = self._device_io_control(ioctl_code=_ioctl.SET_PRECEDENCE, in_buffer=ctypes.c_ushort(value))
         if not result.success:
             raise DeviceIoError(f"Failed to set precedence for {self.device_path}")
 
@@ -221,7 +220,7 @@ class Device:
         Raises:
             DeviceIoError: If sending the input fails.
         """
-        result = self._device_io_control(ioctl_code=IOCTL_WRITE, in_buffer=stroke)
+        result = self._device_io_control(ioctl_code=_ioctl.WRITE, in_buffer=stroke)
         if not result.success:
             raise DeviceIoError("Failed to send input stroke to device")
 
@@ -243,7 +242,7 @@ class Device:
         else:
             raise UnsupportedDeviceError(f"Unsupported device {self.device_path}")
 
-        result = self._device_io_control(ioctl_code=IOCTL_READ, out_buffer=out_buffer)
+        result = self._device_io_control(ioctl_code=_ioctl.READ, out_buffer=out_buffer)
         if not result.success:
             raise DeviceIoError(f"Failed to receive input from device {self.device_path}")
 

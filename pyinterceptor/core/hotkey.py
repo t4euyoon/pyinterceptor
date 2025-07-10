@@ -1,11 +1,9 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Dict, Set
+from typing import Dict, Set
 
-from . import Interception, InputStateManager
-from ..defs import Key
-
-CallbackType = Callable[[set[Key]], None]
+from pyinterceptor.core import Device, CallbackType
+from pyinterceptor.defs import Key, KeyStroke, MouseStroke
 
 
 class Hotkey:
@@ -46,17 +44,19 @@ class Hotkey:
         """
         return self.keys <= pressed_keys
 
-    def run_callback(self, pressed_keys: Set[Key] = None) -> bool:
+    def run_callback(self, device: Device, stroke: KeyStroke | MouseStroke, pressed_keys: Set[Key]) -> bool:
         """Runs the callback function and resets running state.
 
         Args:
-            pressed_keys (Set[Key], optional): Currently pressed keys, passed to callback.
+            device (Device): The device on which the hotkey was triggered.
+            stroke (KeyStroke | MouseStroke): The input stroke that triggered the hotkey.
+            pressed_keys (Set[Key]): The set of hardware keys currently pressed at the moment of triggering.
 
         Returns:
             bool: The is_suppress flag indicating whether to suppress input.
         """
         try:
-            self.callback(pressed_keys)
+            self.callback(device, stroke, pressed_keys)
             return self.is_suppress
         finally:
             self.is_running = False
@@ -81,6 +81,8 @@ class HotkeyManager:
         self.hotkeys: set[Hotkey] = set()
 
         self._executor = ThreadPoolExecutor()
+
+        from pyinterceptor.core import Interception, InputStateManager
         self.interception = Interception()
         self.input_state_manager = InputStateManager()
 
@@ -115,14 +117,15 @@ class HotkeyManager:
         """
         self.hotkeys.discard(hotkey)
 
-    def process_key_event(self, _) -> bool:
+    def process_key_event(self, device: Device, stroke: KeyStroke | MouseStroke) -> bool:
         """Processes a key event from intercepted input.
 
         Checks all registered hotkeys against current hardware key states,
         triggers callbacks asynchronously if matched.
 
         Args:
-            _ : Unused parameter (input stroke).
+            device (Device): The device instance generating the event.
+            stroke (KeyStroke | MouseStroke): The input stroke event.
 
         Returns:
             bool: True if any hotkey suppresses the input, False otherwise.
@@ -138,7 +141,7 @@ class HotkeyManager:
             if not hotkey.is_running or hotkey.allow_reentry:
                 # Mark callback running and schedule it on thread pool
                 hotkey.is_running = True
-                self._executor.submit(hotkey.run_callback, pressed_keys)
+                self._executor.submit(hotkey.run_callback, device, stroke, pressed_keys)
 
         return is_suppress
 

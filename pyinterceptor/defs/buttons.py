@@ -1,6 +1,6 @@
 from enum import Enum
 
-from . import MouseState
+from pyinterceptor.defs import MouseState
 
 
 class MouseButton(Enum):
@@ -11,16 +11,18 @@ class MouseButton(Enum):
     BUTTON_5 = "button_5"
 
     def __new__(cls, value):
-        # str로 선언된 Enum 생성일 경우 그대로 사용
         if isinstance(value, str):
-            return super().__new__(cls, value)
+            obj = object.__new__(cls)
+            obj._value_ = value
+            return obj
 
-        # MouseState 또는 int로 전달된 경우 매핑 시도
         if isinstance(value, MouseState) or isinstance(value, int):
-            value = MouseState(value)
+            state = MouseState(value)
             for flag, button in cls._mouse_state_to_button_map().items():
-                if value & flag:
-                    return super().__new__(cls, button.value)
+                if state & flag:
+                    obj = object.__new__(cls)
+                    obj._value_ = button.value
+                    return obj
 
         raise ValueError(f"Cannot convert {value!r} to MouseButton")
 

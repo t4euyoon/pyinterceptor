@@ -2,11 +2,12 @@ import ctypes
 import ctypes.wintypes as wintypes
 import logging
 from dataclasses import dataclass
+from typing import Callable
 
-from exceptions import DeviceNotFoundError, DriverLoadError
-from . import Device, InputStateManager
-from ..defs import FilterKeyState, FilterMouseState, KeyState, KeyStroke, MouseStroke
-from ..utils.decorators import singleton
+from pyinterceptor.core import Device, InputStateManager
+from pyinterceptor.defs import FilterKeyState, FilterMouseState, KeyState, KeyStroke, MouseStroke, Key
+from pyinterceptor.exceptions import DeviceNotFoundError, DriverLoadError, DeviceIoError
+from pyinterceptor.utils import decorators
 
 # Win32 API for waiting on multiple handles
 WaitForMultipleObjects = ctypes.windll.kernel32.WaitForMultipleObjects
@@ -17,6 +18,8 @@ WAIT_TIMEOUT = 0x102
 WAIT_OBJECT_0 = 0x0
 INFINITE = 0xFFFFFFFF
 MAX_DEVICES = 20
+
+CallbackType = Callable[[Device, KeyStroke | MouseStroke, set[Key]], None]
 
 
 @dataclass
@@ -33,14 +36,14 @@ class InputEventResult:
     is_suppress: bool
 
 
-@singleton
+@decorators.singleton
 class Interception:
     """Main driver class that manages multiple interception devices and input event dispatching."""
 
     def __init__(self):
         self.devices: list[Device] = []
         self._handles = None
-        self._listeners = []
+        self._listeners: list[Callable[[Device, KeyStroke | MouseStroke], bool]] = []
 
         self.input_state_manager = InputStateManager()
 
@@ -59,11 +62,11 @@ class Interception:
             device_path = fr"\\.\interception{str(i).zfill(2)}"
             try:
                 device = Device(device_path)
-                self.devices.append(device)
 
                 if (hwid := device.get_hwid()) is not None:
+                    self.devices.append(device)
                     logging.debug(f"Opened {device_path}(hwid: {hwid})")
-            except DeviceNotFoundError:
+            except (DeviceNotFoundError, DeviceIoError):
                 # Device path not available or failed to open; ignore
                 continue
 
@@ -159,7 +162,7 @@ class Interception:
         is_suppress = False
         # Call registered listeners; any listener returning True suppresses input
         for listener in self._listeners:
-            is_suppress |= listener(stroke)
+            is_suppress |= listener(device, stroke)
 
         is_key_down = not stroke.flags & KeyState.UP
         is_key_pressed = self.input_state_manager.is_pressed(stroke.code, False)
@@ -177,11 +180,11 @@ class Interception:
             device.close()
         self.devices.clear()
 
-    def add_event_listener(self, callback):
+    def add_event_listener(self, callback: Callable[[Device, KeyStroke | MouseStroke], bool]):
         """Registers a callback listener that receives input strokes.
 
         Args:
-            callback (Callable[[KeyStroke | MouseStroke], bool]):
+            callback (Callable[[Device, KeyStroke | MouseStroke], bool]):
                 A function that takes a stroke and returns True to suppress the input.
         """
         self._listeners.append(callback)

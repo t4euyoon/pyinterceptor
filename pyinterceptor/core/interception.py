@@ -3,8 +3,9 @@ import ctypes.wintypes as wintypes
 import logging
 from dataclasses import dataclass
 
+from exceptions import DeviceNotFoundError, DriverLoadError
 from . import Device, InputStateManager
-from ..types import FilterKeyState, FilterMouseState, KeyState, KeyStroke, MouseStroke
+from ..defs import FilterKeyState, FilterMouseState, KeyState, KeyStroke, MouseStroke
 from ..utils.decorators import singleton
 
 # Win32 API for waiting on multiple handles
@@ -62,12 +63,12 @@ class Interception:
 
                 if (hwid := device.get_hwid()) is not None:
                     logging.debug(f"Opened {device_path}(hwid: {hwid})")
-            except RuntimeError:
+            except DeviceNotFoundError:
                 # Device path not available or failed to open; ignore
                 continue
 
         if not self.devices:
-            raise RuntimeError("No interception devices could be opened.")
+            raise DriverLoadError("No interception devices could be opened.")
 
     def _prepare_handle_array(self):
         """Prepares an array of event handles from opened devices for waiting."""
@@ -184,31 +185,3 @@ class Interception:
                 A function that takes a stroke and returns True to suppress the input.
         """
         self._listeners.append(callback)
-
-    # def find_keyboard_device(self, timeout: float = 2.0) -> int:
-    #     """
-    #     Attempts to find the keyboard device by waiting for actual input.
-    #
-    #     Args:
-    #         timeout (float): Time in seconds to wait for a key input.
-    #
-    #     Returns:
-    #         int: Detected keyboard device ID.
-    #
-    #     Raises:
-    #         RuntimeError: If no keyboard input is detected in time.
-    #     """
-    #
-    #     start = time.time()
-    #     print("Waiting for keyboard input... (press any key)")
-    #
-    #     while time.time() - start < timeout:
-    #         for device in self.devices:
-    #             if device.is_keyboard:  # Optional: basic type filter
-    #                 stroke = device.receive()
-    #                 if stroke:
-    #                     print(f"Keyboard input detected on device {device_id}")
-    #                     return device_id
-    #         time.sleep(0.01)
-    #
-    #     raise RuntimeError("Failed to detect keyboard input.")

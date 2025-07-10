@@ -1,5 +1,6 @@
+from .buttons import MouseButton
+from .flags import KeyState, MouseState, FilterKeyState, FilterMouseState, MouseFlag
 from .keycodes import Key
-from .states import KeyState, MouseState, FilterKeyState, FilterMouseState
 from .stroke import KeyStroke, MouseStroke
 
 __all__ = [
@@ -8,6 +9,8 @@ __all__ = [
     "MouseStroke",
     "KeyState",
     "MouseState",
+    "MouseFlag",
+    "MouseButton",
     "FilterKeyState",
     "FilterMouseState",
 ]

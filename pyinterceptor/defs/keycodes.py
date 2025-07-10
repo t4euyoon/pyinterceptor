@@ -162,9 +162,3 @@ class Key(IntEnum):
 
     def __repr__(self):
         return f"<Key.{self.name}(0x{self.value:X})>"
-
-
-# Example usage:
-if __name__ == "__main__":
-    print(f"Scan code of A: {Key.A:#04x}")
-    print(f"Scan code of Left Shift: {Key.LEFT_SHIFT:#04x}")

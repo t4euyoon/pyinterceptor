@@ -1,11 +1,13 @@
-from .core import Interception, HotkeyManager, Keyboard, Mouse
-from .types import Key, KeyState
+from .core import Interception, HotkeyManager, Keyboard
+from .defs import Key, KeyState, MouseButton, MouseState, MouseFlag
 
 __all__ = [
     "Interception",
     "HotkeyManager",
     "Keyboard",
-    "Mouse",
     "Key",
-    "KeyState"
+    "KeyState",
+    "MouseButton",
+    "MouseState",
+    "MouseFlag",
 ]

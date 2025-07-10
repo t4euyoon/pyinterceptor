@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Dict, Set
 
 from . import Interception, InputStateManager
-from ..types import Key
+from ..defs import Key
 
 CallbackType = Callable[[set[Key]], None]
 

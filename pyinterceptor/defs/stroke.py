@@ -1,18 +1,10 @@
 from ctypes import Structure, c_ushort, c_ulong, c_long
 
-from . import Key, KeyState
+from . import Key, KeyState, MouseState, MouseFlag
 
 
 class KeyStroke(Structure):
-    """Represents a keyboard input stroke structure compatible with interception driver.
-
-    Attributes:
-        unit_id (c_ushort): Device unit identifier.
-        _code (c_ushort): Scan code of the key.
-        _flags (c_ushort): Flags describing key state and extensions.
-        reserved (c_ushort): Reserved field, unused.
-        information (c_ulong): Additional information, zero indicates hardware input.
-    """
+    """Represents a keyboard input stroke structure compatible with interception driver."""
 
     _fields_ = [
         ("unit_id", c_ushort),
@@ -35,12 +27,12 @@ class KeyStroke(Structure):
         0xE100: KeyState.E1,
     }
 
-    def __init__(self, code: Key | int = 0, flags: KeyState | int = KeyState.DOWN, information: int = 0):
+    def __init__(self, code: Key | int, flags: KeyState | int = KeyState.DOWN, information: int = 0):
         """
         Initializes a KeyStroke structure.
 
         Args:
-            code (Key | int, optional): Key code including extension prefix.
+            code (Key | int): Key code including extension prefix.
             flags (KeyState | int, optional): Key state flags. Defaults to KeyState.DOWN.
             information (int, optional): Information field. 0 indicates hardware. Defaults to 0.
         """
@@ -80,7 +72,7 @@ class KeyStroke(Structure):
             TypeError: If value is not int or Key.
         """
         if isinstance(value, Key):
-            code_val = value.value
+            code_val = int(value)
         elif isinstance(value, int):
             code_val = value
         else:
@@ -118,7 +110,7 @@ class KeyStroke(Structure):
             TypeError: If value is not int or KeyState.
         """
         if isinstance(value, KeyState):
-            self._flags = value.value
+            self._flags = int(value)
         elif isinstance(value, int):
             self._flags = value
         else:
@@ -144,37 +136,107 @@ class KeyStroke(Structure):
 
 
 class MouseStroke(Structure):
-    """Represents a mouse input stroke structure compatible with interception driver.
-
-    Attributes:
-        unit_id (c_ushort): Device unit identifier.
-        flags (c_ushort): General mouse input flags.
-        button_flags (c_ushort): Mouse button specific flags.
-        button_data (c_ushort): Additional data for buttons (e.g. wheel delta).
-        raw_buttons (c_ulong): Raw button data.
-        x (c_long): Movement in X axis.
-        y (c_long): Movement in Y axis.
-        information (c_ulong): Additional information, zero indicates hardware input.
-    """
+    """Represents a mouse input stroke structure compatible with the Interception driver."""
 
     _fields_ = [
         ("unit_id", c_ushort),
-        ("flags", c_ushort),
-        ("button_flags", c_ushort),
-        ("button_data", c_ushort),
+        ("_flags", c_ushort),
+        ("_button_flags", c_ushort),
+        ("_button_data", c_ushort),
         ("raw_buttons", c_ulong),
-        ("x", c_long),
-        ("y", c_long),
+        ("_x", c_long),
+        ("_y", c_long),
         ("information", c_ulong),
     ]
 
-    flags: int
-    button_flags: int
-    button_data: int
-    x: int
-    y: int
-    information: int
+    def __init__(
+            self,
+            x: int = 0,
+            y: int = 0,
+            flags: MouseFlag | int = MouseFlag.MOVE_RELATIVE,
+            button_flags: MouseState | int = MouseState.NONE,
+            button_data: int = 0,
+            information: int = 0,
+            unit_id: int = 0,
+    ):
+        """
+        Initializes a MouseStroke structure.
+
+        Args:
+            x (int): Movement on X-axis.
+            y (int): Movement on Y-axis.
+            flags (MouseFlag | int): General mouse flags (e.g. relative/absolute).
+            button_flags (MouseState | int): Button flags (e.g. LEFT_DOWN).
+            button_data (int): Button-related data (e.g. wheel delta).
+            information (int): Input information (0 = hardware).
+            unit_id (int): Device unit ID.
+        """
+        super().__init__()
+        self.unit_id = unit_id
+        self.flags = flags
+        self.button_flags = button_flags
+        self.button_data = button_data
+        self.x = x
+        self.y = y
+        self.information = information
 
     def __repr__(self):
-        return (f"MouseStroke(flags={self.flags}, button_flags={self.button_flags}, button_data={self.button_data},"
-                f" x={self.x}, y={self.y}, information={self.information})")
+        return (
+            f"MouseStroke(flags={self.flags}, button_flags={self.button_flags}, "
+            f"button_data={self.button_data}, x={self.x}, y={self.y}, information={self.information})"
+        )
+
+    @property
+    def flags(self) -> MouseFlag:
+        """Gets the movement flags."""
+        return MouseFlag(self._flags)
+
+    @flags.setter
+    def flags(self, value: MouseFlag | int):
+        """Sets the movement flags."""
+        self._flags = int(value)
+
+    @property
+    def button_flags(self) -> MouseState:
+        """Gets the button flags."""
+        return MouseState(self._button_flags)
+
+    @button_flags.setter
+    def button_flags(self, value: MouseState | int):
+        """Sets the button flags."""
+        self._button_flags = int(value)
+
+    @property
+    def button_data(self) -> int:
+        """Gets the button data."""
+        return self._button_data
+
+    @button_data.setter
+    def button_data(self, value: int):
+        """Sets the button data."""
+        self._button_data = value
+
+    @property
+    def x(self) -> int:
+        """Gets X-axis movement."""
+        return self._x
+
+    @x.setter
+    def x(self, value: int):
+        """Sets X-axis movement."""
+        self._x = value
+
+    @property
+    def y(self) -> int:
+        """Gets Y-axis movement."""
+        return self._y
+
+    @y.setter
+    def y(self, value: int):
+        """Sets Y-axis movement."""
+        self._y = value
+
+    @property
+    def is_hardware(self) -> bool:
+        """Indicates if the input was generated by hardware."""
+        return self.information == 0

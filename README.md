@@ -29,10 +29,12 @@ pip install pyinterceptor
 
 ```python
 from pyinterceptor import HotkeyManager
-from pyinterceptor.types import Key
+from pyinterceptor.defs import Key
+
 
 def on_hotkey_pressed():
     print("Hotkey was pressed!")
+
 
 # Create a hotkey manager for keyboard
 hotkey_manager = HotkeyManager(keyboard=True)
@@ -51,7 +53,7 @@ hotkey_manager.listen()
 
 ```python
 from pyinterceptor import Keyboard
-from pyinterceptor.types import Key
+from pyinterceptor.defs import Key
 
 # Create a keyboard instance (device ID 1)
 keyboard = Keyboard(device=1)
@@ -70,7 +72,7 @@ keyboard.release(Key.B)
 
 ```python
 from pyinterceptor import Interception
-from pyinterceptor.types import KeyState
+from pyinterceptor.defs import KeyState
 
 # Get the singleton instance of Interception
 interception = Interception()
@@ -78,11 +80,13 @@ interception = Interception()
 # Set up a filter for keyboard events
 interception.set_filter_keyboard()
 
+
 # Add an event listener
 def input_callback(stroke):
     print(f"Key: {stroke.code}, State: {stroke.flags}")
     # Return True to suppress the input, False to let it through
     return False
+
 
 interception.add_event_listener(input_callback)
 

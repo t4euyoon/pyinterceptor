@@ -2,8 +2,10 @@ import ctypes
 import ctypes.wintypes as wintypes
 from dataclasses import dataclass
 
-from ._ioctl import IOCTL_READ, IOCTL_WRITE, IOCTL_SET_FILTER, IOCTL_SET_EVENT, IOCTL_GET_HARDWARE_ID
-from ..types import FilterKeyState, FilterMouseState, KeyStroke, MouseStroke
+from exceptions import DeviceIoError, DeviceNotFoundError, UnsupportedDeviceError
+from ._ioctl import IOCTL_READ, IOCTL_WRITE, IOCTL_SET_FILTER, IOCTL_SET_EVENT, IOCTL_GET_HARDWARE_ID, IOCTL_GET_FILTER, \
+    IOCTL_GET_PRECEDENCE, IOCTL_SET_PRECEDENCE
+from ..defs import FilterKeyState, FilterMouseState, KeyStroke, MouseStroke
 
 # Win32 API function bindings
 CreateFile = ctypes.windll.kernel32.CreateFileW
@@ -12,7 +14,7 @@ CloseHandle = ctypes.windll.kernel32.CloseHandle
 DeviceIoControl = ctypes.windll.kernel32.DeviceIoControl
 WaitForSingleObject = ctypes.windll.kernel32.WaitForSingleObject
 
-# Define return types for clarity and safety
+# Define return defs for clarity and safety
 CreateFile.restype = wintypes.HANDLE
 CreateEvent.restype = wintypes.HANDLE
 CloseHandle.restype = wintypes.BOOL
@@ -47,7 +49,7 @@ class Device:
             device_path (str): The device path (e.g., '\\\\.\\interception01').
 
         Raises:
-            RuntimeError: If the device or event handle fails to open or bind.
+            DeviceIoError: If the device or event handle fails to open or bind.
         """
         self.device_path = device_path
         self.handle = self._open_device()
@@ -61,7 +63,7 @@ class Device:
             HANDLE: A valid Windows handle to the device.
 
         Raises:
-            RuntimeError: If the handle is invalid.
+            DeviceIoError: If the handle is invalid.
         """
         handle = CreateFile(
             self.device_path,
@@ -73,7 +75,7 @@ class Device:
             None
         )
         if handle == INVALID_HANDLE_VALUE:
-            raise RuntimeError(f"Failed to open {self.device_path}")
+            raise DeviceNotFoundError(f"Failed to open {self.device_path}")
         return handle
 
     @staticmethod
@@ -84,7 +86,7 @@ class Device:
             HANDLE: A Windows event handle.
 
         Raises:
-            RuntimeError: If the event creation fails.
+            DeviceIoError: If the event creation fails.
         """
         event = CreateEvent(None, True, False, None)  # manual-reset, initially non-signaled
         if not event:
@@ -94,12 +96,17 @@ class Device:
     def _bind_event(self):
         """Binds the created event to the device.
 
+        Returns:
+            bool: True if the event was successfully bound.
+
         Raises:
-            RuntimeError: If the event cannot be bound.
+            DeviceIoError: If the event cannot be bound.
         """
         result = self._device_io_control(ioctl_code=IOCTL_SET_EVENT, in_buffer=ctypes.c_void_p(self.event))
         if not result.success:
-            raise RuntimeError(f"Failed to bind event for {self.device_path}")
+            raise DeviceIoError(f"Failed to bind event for {self.device_path}")
+
+        return result.success
 
     def wait_for_event(self, timeout_ms=1000):
         """Waits for the device to signal an event.
@@ -117,13 +124,37 @@ class Device:
         """Retrieves the hardware ID string of the device.
 
         Returns:
-            str | None: The hardware ID if successful, otherwise None.
+            str | None: The hardware ID if successful, otherwise None if device has no HWID.
+
+        Raises:
+            DeviceIoError: If the device IOCTL call fails.
         """
         buffer_size = 512
         out_buffer = (ctypes.c_wchar * buffer_size)()
         result = self._device_io_control(ioctl_code=IOCTL_GET_HARDWARE_ID, out_buffer=out_buffer)
 
-        return ctypes.wstring_at(out_buffer) if result.success else None
+        if not result.success:
+            raise DeviceIoError(f"Failed to get hardware ID for {self.device_path}")
+
+        hwid = ctypes.wstring_at(out_buffer)
+        return hwid if hwid else None
+
+    def get_filter(self) -> int:
+        """Gets the current filter value for this device.
+
+        Returns:
+            int: The current filter value.
+
+        Raises:
+            DeviceIoError: If retrieving the filter fails.
+        """
+        out_buffer = ctypes.c_ushort()
+
+        result = self._device_io_control(ioctl_code=IOCTL_GET_FILTER, out_buffer=out_buffer)
+        if not result.success:
+            raise DeviceIoError(f"Failed to get filter for {self.device_path}")
+
+        return out_buffer.value
 
     def set_filter(self, value: FilterKeyState | FilterMouseState):
         """Sets a key or mouse filter for this device.
@@ -131,20 +162,70 @@ class Device:
         Args:
             value (FilterKeyState | FilterMouseState): The filter value to set.
 
+        Returns:
+            bool: True if the filter was successfully set.
+
         Raises:
-            RuntimeError: If setting the filter fails.
+            DeviceIoError: If setting the filter fails.
         """
         result = self._device_io_control(ioctl_code=IOCTL_SET_FILTER, in_buffer=ctypes.c_ushort(value))
         if not result.success:
-            raise RuntimeError(f"Failed to set filter for {self.device_path}")
+            raise DeviceIoError(f"Failed to set filter for {self.device_path}")
+
+        return result.success
+
+    def get_precedence(self) -> int:
+        """Gets the current precedence level of the device.
+
+        Returns:
+            int: The precedence value of the device.
+
+        Raises:
+            DeviceIoError: If retrieving the precedence fails.
+        """
+        out_buffer = ctypes.c_ushort()
+
+        result = self._device_io_control(ioctl_code=IOCTL_GET_PRECEDENCE, out_buffer=out_buffer)
+        if not result.success:
+            raise DeviceIoError(f"Failed to get precedence for {self.device_path}")
+
+        return out_buffer.value
+
+    def set_precedence(self, value: int) -> bool:
+        """Sets the precedence level of the device.
+
+        Args:
+            value (int): The precedence value to set.
+
+        Returns:
+            bool: True if the precedence was successfully set.
+
+        Raises:
+            DeviceIoError: If setting the precedence fails.
+        """
+        result = self._device_io_control(ioctl_code=IOCTL_SET_PRECEDENCE, in_buffer=ctypes.c_ushort(value))
+        if not result.success:
+            raise DeviceIoError(f"Failed to set precedence for {self.device_path}")
+
+        return result.success
 
     def send(self, stroke: KeyStroke | MouseStroke):
         """Sends a keystroke or mouse input to the device.
 
         Args:
             stroke (KeyStroke | MouseStroke): The input stroke to send.
+
+        Returns:
+            bool: True if the input was successfully sent.
+
+        Raises:
+            DeviceIoError: If sending the input fails.
         """
-        return self._device_io_control(ioctl_code=IOCTL_WRITE, in_buffer=stroke)
+        result = self._device_io_control(ioctl_code=IOCTL_WRITE, in_buffer=stroke)
+        if not result.success:
+            raise DeviceIoError("Failed to send input stroke to device")
+
+        return result.success
 
     def receive(self) -> KeyStroke | MouseStroke | None:
         """Receives a keystroke or mouse input from the device.
@@ -153,18 +234,20 @@ class Device:
             KeyStroke | MouseStroke | None: The received input if successful, otherwise None.
 
         Raises:
-            RuntimeError: If the device is not identified as keyboard or mouse.
+            DeviceIoError: If the device is not identified as keyboard or mouse.
         """
         if self.is_keyboard:
             out_buffer = KeyStroke()
         elif self.is_mouse:
             out_buffer = MouseStroke()
         else:
-            raise RuntimeError(f"Unsupported device {self.device_path}")
+            raise UnsupportedDeviceError(f"Unsupported device {self.device_path}")
 
         result = self._device_io_control(ioctl_code=IOCTL_READ, out_buffer=out_buffer)
+        if not result.success:
+            raise DeviceIoError(f"Failed to receive input from device {self.device_path}")
 
-        return out_buffer if result.success else None
+        return out_buffer
 
     def close(self):
         """Closes the device and event handles."""

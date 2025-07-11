@@ -20,7 +20,7 @@ PyInterceptor is a Python library for intercepting and manipulating keyboard and
 ## Installation
 
 ```bash
-pip install pyinterceptor
+pip install pyinterceptor-hotkeys
 ```
 
 ## Usage Examples
@@ -28,11 +28,10 @@ pip install pyinterceptor
 ### Basic Hotkey Registration
 
 ```python
-from pyinterceptor import HotkeyManager
-from pyinterceptor.defs import Key
+from pyinterceptor import HotkeyManager, Key, Device, KeyStroke
 
 
-def on_hotkey_pressed():
+def on_hotkey_pressed(device: Device, stroke: KeyStroke, pressed_keys: set[Key]):
     print("Hotkey was pressed!")
 
 
@@ -52,8 +51,7 @@ hotkey_manager.listen()
 ### Simulating Keyboard Input
 
 ```python
-from pyinterceptor import Keyboard
-from pyinterceptor.defs import Key
+from pyinterceptor import Keyboard, Key
 
 # Create a keyboard instance (device ID 1)
 keyboard = Keyboard(device=1)
@@ -72,7 +70,6 @@ keyboard.release(Key.B)
 
 ```python
 from pyinterceptor import Interception
-from pyinterceptor.defs import KeyState
 
 # Get the singleton instance of Interception
 interception = Interception()

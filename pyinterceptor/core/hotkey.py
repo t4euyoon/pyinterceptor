@@ -3,7 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Set
 
 from pyinterceptor.core import Device, CallbackType
-from pyinterceptor.defs import Key, KeyStroke, MouseStroke
+from pyinterceptor.defs import Key, KeyStroke, MouseStroke, FilterKeyState, FilterMouseState
+from pyinterceptor.utils import decorators
 
 
 class Hotkey:
@@ -62,6 +63,7 @@ class Hotkey:
             self.is_running = False
 
 
+@decorators.singleton
 class HotkeyManager:
     """Manages multiple hotkeys and dispatches callbacks on matching input events.
 
@@ -77,7 +79,7 @@ class HotkeyManager:
             keyboard (bool): Enable keyboard input interception (default True).
             mouse (bool): Enable mouse input interception (default False).
         """
-        # self.hotkeys: Dict[int, Hotkey] = {}
+        self._listening = False
         self.hotkeys: set[Hotkey] = set()
 
         self._executor = ThreadPoolExecutor()
@@ -86,10 +88,8 @@ class HotkeyManager:
         self.interception = Interception()
         self.input_state_manager = InputStateManager()
 
-        if keyboard:
-            self.interception.set_filter_keyboard()
-        if mouse:
-            self.interception.set_filter_mouse()
+        self._filter_keyboard = keyboard
+        self._filter_mouse = mouse
 
         self.interception.add_event_listener(self.process_key_event)
 
@@ -150,6 +150,30 @@ class HotkeyManager:
 
         This method blocks indefinitely.
         """
-        while True:
-            result = self.interception.receive()
-            logging.debug(result)
+        if self._filter_keyboard:
+            self.interception.set_filter_keyboard()
+        if self._filter_mouse:
+            self.interception.set_filter_mouse()
+
+        self._listening = True
+
+        while self._listening:
+            self.interception.receive()
+
+    def toggle_filter_keyboard(self, toggle: bool | None = None):
+        """Toggle keyboard filter state.
+
+        Args:
+            toggle (bool | None): If given, set filter to this value; otherwise toggle current state.
+        """
+        self._filter_keyboard = toggle if toggle is not None else not self._filter_keyboard
+        self.interception.set_filter_keyboard(FilterKeyState.NONE if self._filter_keyboard else FilterKeyState.ALL)
+
+    def toggle_filter_mouse(self, toggle: bool | None = None):
+        """Toggle mouse filter state.
+
+        Args:
+            toggle (bool | None): If given, set filter to this value; otherwise toggle current state.
+        """
+        self._filter_mouse = toggle if toggle is not None else not self._filter_mouse
+        self.interception.set_filter_mouse(FilterMouseState.NONE if self._filter_mouse else FilterMouseState.ALL)

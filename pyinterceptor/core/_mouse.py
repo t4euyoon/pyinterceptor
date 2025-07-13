@@ -111,17 +111,34 @@ class Mouse:
         return self._release(button)
 
     @staticmethod
-    def is_pressed(button: MouseButton, is_hardware: bool = True) -> bool:
+    def is_pressed(button: MouseButton, mode: Literal["software", "hardware", "both"] = "software") -> bool:
         """Checks whether a mouse button is currently pressed.
 
         Args:
-            button (MouseButton): Button to check.
-            is_hardware (bool): Whether to check hardware-only state.
+            button (MouseButton): The button to check.
+            mode (Literal["software", "hardware", "both"]): The state mode to check.
 
         Returns:
-            bool: True if the button is pressed.
+            bool: True if the button is currently pressed according to the specified mode.
         """
-        return InputStateManager().is_pressed(button, is_hardware)
+        return InputStateManager().is_pressed(button, mode)
+
+    def _send_mouse_event(self, button: MouseButton, is_down: bool) -> bool:
+        """Sends a mouse button event and updates the input state manager.
+
+        Args:
+            button (MouseButton): The mouse button involved in the event.
+            is_down (bool): True for a button down event, False for a button up event.
+
+        Returns:
+            bool: True if the event was sent successfully.
+        """
+        button_flags = button.down if is_down else button.up
+        stroke = MouseStroke(button_flags=button_flags)
+        success = Interception().send(self.device, stroke)
+        if success:
+            InputStateManager().update_mouse_state(button=button, is_down=is_down, is_hardware=False)
+        return success
 
     def _press(self, button: MouseButton) -> bool:
         """Sends a button press event.
@@ -132,8 +149,7 @@ class Mouse:
         Returns:
             bool: True if the event was sent.
         """
-        stroke = MouseStroke(button_flags=button.down)
-        return Interception().send(self.device, stroke)
+        return self._send_mouse_event(button, True)
 
     def _release(self, button: MouseButton) -> bool:
         """Sends a button release event.
@@ -144,8 +160,7 @@ class Mouse:
         Returns:
             bool: True if the event was sent.
         """
-        stroke = MouseStroke(button_flags=button.up)
-        return Interception().send(self.device, stroke)
+        return self._send_mouse_event(button, False)
 
     @staticmethod
     def _sleep(delay: int, delay_mode: DelayMode = "fixed"):

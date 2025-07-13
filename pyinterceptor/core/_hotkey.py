@@ -1,4 +1,3 @@
-import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Set
 

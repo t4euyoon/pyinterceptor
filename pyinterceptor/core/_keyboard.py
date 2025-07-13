@@ -102,7 +102,8 @@ class Keyboard:
             self.release(key)
             self._sleep(delay, delay_mode)
 
-    def is_pressed(self, key: Key, mode: Literal["software", "hardware", "both"] = "software"):
+    @staticmethod
+    def is_pressed(key: Key, mode: Literal["software", "hardware", "both"] = "software"):
         """Checks whether a key is currently pressed.
 
         Args:

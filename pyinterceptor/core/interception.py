@@ -128,12 +128,15 @@ class Interception:
             if device.is_mouse:
                 device.set_filter(filter_mouse_state)
 
-    def send(self, device: int | Device, stroke: KeyStroke | MouseStroke):
+    def send(self, device: int | Device, stroke: KeyStroke | MouseStroke) -> bool:
         """Sends an input stroke to a specified device.
 
         Args:
             device (int | Device): Device index or device instance.
             stroke (KeyStroke | MouseStroke): The input stroke to send.
+            
+        Returns:
+            bool: True if the stroke was sent successfully, False otherwise.
         """
         if isinstance(device, int):
             device = self._devices[device]
@@ -176,15 +179,26 @@ class Interception:
         if isinstance(stroke, KeyStroke):
             self.last_active_keyboard = device
             is_down = not stroke.flags & KeyState.UP
-            is_pressed = self.input_state_manager.is_pressed(stroke.code, False)
+            is_pressed = self.input_state_manager.is_pressed(stroke.code)
 
         # Process mouse stroke
         elif isinstance(stroke, MouseStroke):
             self.last_active_mouse = device
             is_down = MouseState(stroke.button_flags).name.endswith('_DOWN')
-            is_pressed = self.input_state_manager.is_pressed(MouseButton(stroke.button_flags), False)
+            is_pressed = self.input_state_manager.is_pressed(MouseButton(stroke.button_flags))
 
-        # If not suppressed and input is down or already pressed by software, resend input and update software state
+        # If the input is not suppressed by a listener (`not is_suppress`) and meets the conditions below,
+        # the stroke is resent to the OS. The `(is_down or is_pressed)` check ensures that strokes are only
+        # resent to the OS under valid conditions, primarily to synchronize the OS's key state with our
+        # internal software-managed state.
+        #
+        # - `is_down`: If a physical key press (down event) occurs, it must be sent to the OS.
+        # - `is_pressed`: If a key is currently held down according to our `InputStateManager` (software state),
+        #                 even if the current physical event is a key-up (`is_down` is False),
+        #                 this key-up event *must* be sent to the OS. This prevents a scenario
+        #                 where a key is pressed by software, then physically released, but the
+        #                 OS never receives the release event, leading to a "stuck" key state in the OS.
+        #                 Essentially, we only send a key-up event if our software believes the key was down.
         if not is_suppress and (is_down or is_pressed):
             update_method(stroke=stroke, is_hardware=False)
             device.send(stroke)
@@ -200,8 +214,12 @@ class Interception:
     def add_event_listener(self, callback: Callable[[Device, KeyStroke | MouseStroke], bool]):
         """Registers a callback listener that receives input strokes.
 
+        The callback will be invoked for each input event received. If the callback
+        returns True, the input event will be suppressed and not forwarded to the OS.
+
         Args:
             callback (Callable[[Device, KeyStroke | MouseStroke], bool]):
-                A function that takes a stroke and returns True to suppress the input.
+                A function that accepts the device and stroke, and returns a boolean
+                indicating whether to suppress the input.
         """
         self._listeners.append(callback)

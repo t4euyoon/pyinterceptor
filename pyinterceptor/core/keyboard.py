@@ -36,8 +36,7 @@ class Keyboard:
         Returns:
             bool: True if the event was sent successfully.
         """
-        stroke = KeyStroke(key, KeyState.DOWN)
-        return Interception().send(self.device, stroke)
+        return self._send_key_event(key, KeyState.DOWN)
 
     def release(self, key: Key):
         """Sends a key up event.
@@ -48,8 +47,14 @@ class Keyboard:
         Returns:
             bool: True if the event was sent successfully.
         """
-        stroke = KeyStroke(key, KeyState.UP)
-        return Interception().send(self.device, stroke)
+        return self._send_key_event(key, KeyState.UP)
+
+    def _send_key_event(self, key: Key, state: KeyState):
+        stroke = KeyStroke(key, state)
+        success = Interception().send(self.device, stroke)
+        if success:
+            InputStateManager().update_key_state(key, is_down=state == KeyState.DOWN, is_hardware=False)
+        return success
 
     def tap(self, key: Key, delay: int = 50, delay_mode: DelayMode = "fixed"):
         """Taps a key with optional delay mode.
@@ -97,17 +102,20 @@ class Keyboard:
             self.release(key)
             self._sleep(delay, delay_mode)
 
-    def is_pressed(self, key: Key, is_hardware: bool = True):
+    def is_pressed(self, key: Key, mode: Literal["software", "hardware", "both"] = "software"):
         """Checks whether a key is currently pressed.
 
         Args:
             key (Key): The key to check.
-            is_hardware (bool): Whether to check hardware state only.
+            mode (Literal["software", "hardware", "both"]):
+                - "software": Checks for software-generated key presses (default).
+                - "hardware": Checks for hardware-generated key presses.
+                - "both": Checks for both software and hardware presses.
 
         Returns:
-            bool: True if the key is currently pressed.
+            bool: True if the key is currently pressed according to the specified mode.
         """
-        return InputStateManager().is_pressed(key, is_hardware)
+        return InputStateManager().is_pressed(key, mode)
 
     @staticmethod
     def _sleep(delay: int, delay_mode: DelayMode = "fixed"):

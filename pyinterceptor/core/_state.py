@@ -108,24 +108,33 @@ class InputStateManager:
         else:
             target_set.discard(button)
 
-    def is_pressed(self, code: Key | MouseButton, is_hardware: bool) -> bool:
+    def is_pressed(self, code: Union[Key, MouseButton], mode: str = "software") -> bool:
         """Checks whether a key or mouse button is currently pressed.
 
         Args:
             code (Key | MouseButton): The input code to check.
-            is_hardware (bool): True to check hardware inputs, False for software.
+            mode (str): "software", "hardware", or "both".
 
         Returns:
-            bool: True if the code is pressed.
+            bool: True if the code is pressed according to the mode.
         """
         if isinstance(code, Key):
-            target_set = self.pressed_hardware_keys if is_hardware else self.pressed_software_keys
+            software_set = self.pressed_software_keys
+            hardware_set = self.pressed_hardware_keys
         elif isinstance(code, MouseButton):
-            target_set = self.pressed_hardware_buttons if is_hardware else self.pressed_software_buttons
+            software_set = self.pressed_software_buttons
+            hardware_set = self.pressed_hardware_buttons
         else:
             raise TypeError("Input must be of type Key or MouseButton.")
 
-        return code in target_set
+        if mode == "software":
+            return code in software_set
+        if mode == "hardware":
+            return code in hardware_set
+        if mode == "both":
+            return code in software_set or code in hardware_set
+
+        raise ValueError(f"Invalid mode: {mode}")
 
     def get_all_pressed_keys(self) -> Set[Key]:
         """Returns all currently pressed keyboard keys (hardware and software).

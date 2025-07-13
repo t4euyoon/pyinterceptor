@@ -27,7 +27,7 @@ class KeyStroke(Structure):
         0xE100: KeyState.E1,
     }
 
-    def __init__(self, code: Key | int = 0, flags: KeyState | int = KeyState.DOWN, information: int = 0):
+    def __init__(self, code: Key | int = 0, flags: KeyState | int = KeyState.DOWN, information: int = 1):
         """
         Initializes a KeyStroke structure.
 
@@ -156,7 +156,7 @@ class MouseStroke(Structure):
             flags: MouseFlag | int = MouseFlag.MOVE_RELATIVE,
             button_flags: MouseState | int = MouseState.NONE,
             button_data: int = 0,
-            information: int = 0,
+            information: int = 1,
             unit_id: int = 0,
     ):
         """

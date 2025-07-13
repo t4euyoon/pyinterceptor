@@ -5,10 +5,13 @@ class Key(IntEnum):
     # ────────── Modifier keys ──────────
     LEFT_SHIFT = 0x2A
     RIGHT_SHIFT = 0x36
+    SHIFT = LEFT_SHIFT
     LEFT_CTRL = 0x1D
     RIGHT_CTRL = 0xE01D
+    CTRL = LEFT_CTRL
     LEFT_ALT = 0x38
     RIGHT_ALT = 0xE038  # AltGr key
+    ALT = LEFT_ALT
     CAPS_LOCK = 0x3A
 
     # ────────── Alphanumeric keys ──────────

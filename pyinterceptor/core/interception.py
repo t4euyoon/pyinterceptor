@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Callable
 
 from pyinterceptor.core import Device, InputStateManager
-from pyinterceptor.defs import FilterKeyState, FilterMouseState, KeyState, KeyStroke, MouseStroke, Key
+from pyinterceptor.defs import (FilterKeyState, FilterMouseState, KeyState, KeyStroke, MouseStroke, Key,
+                                MouseState, MouseButton)
 from pyinterceptor.exceptions import DeviceNotFoundError, DriverLoadError, DeviceIoError
 from pyinterceptor.utils import decorators
 
@@ -28,11 +29,11 @@ class InputEventResult:
 
     Attributes:
         device_path (str): The device path string.
-        stroke (KeyStroke): The input stroke (keyboard or mouse).
+        stroke (KeyStroke | MouseStroke): The input stroke (keyboard or mouse).
         is_suppress (bool): Whether the input was suppressed by a listener.
     """
     device_path: str
-    stroke: KeyStroke
+    stroke: KeyStroke | MouseStroke
     is_suppress: bool
 
 
@@ -41,7 +42,10 @@ class Interception:
     """Main driver class that manages multiple interception devices and input event dispatching."""
 
     def __init__(self):
-        self.devices: list[Device] = []
+        self._devices: list[Device] = []
+        self.last_active_keyboard = None
+        self.last_active_mouse = None
+
         self._handles = None
         self._listeners: list[Callable[[Device, KeyStroke | MouseStroke], bool]] = []
 
@@ -64,19 +68,19 @@ class Interception:
                 device = Device(device_path)
 
                 if (hwid := device.get_hwid()) is not None:
-                    self.devices.append(device)
+                    self._devices.append(device)
                     logging.debug(f"Opened {device_path}(hwid: {hwid})")
             except (DeviceNotFoundError, DeviceIoError):
                 # Device path not available or failed to open; ignore
                 continue
 
-        if not self.devices:
+        if not self._devices:
             raise DriverLoadError("No interception devices could be opened.")
 
     def _prepare_handle_array(self):
         """Prepares an array of event handles from opened devices for waiting."""
-        handle_array_type = wintypes.HANDLE * len(self.devices)
-        self._handles = handle_array_type(*(d.event for d in self.devices))
+        handle_array_type = wintypes.HANDLE * len(self._devices)
+        self._handles = handle_array_type(*(d.event for d in self._devices))
 
     @staticmethod
     def _is_keyboard(device):
@@ -110,7 +114,7 @@ class Interception:
         Args:
             filter_key_state (FilterKeyState): The filter mask to apply.
         """
-        for device in self.devices:
+        for device in self._devices:
             if device.is_keyboard:
                 device.set_filter(filter_key_state)
 
@@ -120,7 +124,7 @@ class Interception:
         Args:
             filter_mouse_state (FilterMouseState): The filter mask to apply.
         """
-        for device in self.devices:
+        for device in self._devices:
             if device.is_mouse:
                 device.set_filter(filter_mouse_state)
 
@@ -132,7 +136,7 @@ class Interception:
             stroke (KeyStroke | MouseStroke): The input stroke to send.
         """
         if isinstance(device, int):
-            device = self.devices[device]
+            device = self._devices[device]
         return device.send(stroke)
 
     def receive(self, timeout_ms: int = INFINITE) -> InputEventResult | None:
@@ -144,41 +148,54 @@ class Interception:
         Returns:
             InputEventResult | None: Result containing device path, stroke, and suppression flag, or None on timeout.
         """
-        count = len(self.devices)
+        count = len(self._devices)
         index = WaitForMultipleObjects(count, self._handles, 0, timeout_ms)
 
         # Check if the wait result is within valid device indices
         if index < WAIT_OBJECT_0 or index >= WAIT_OBJECT_0 + count:
             return None
 
-        device = self.devices[index - WAIT_OBJECT_0]
+        device = self._devices[index - WAIT_OBJECT_0]
         stroke = device.receive()
         if stroke is None:
             return None
 
         # Update hardware key state
-        self.input_state_manager.update_key_state(stroke=stroke, is_hardware=True)
+        update_method = self.input_state_manager.update_key_state if device.is_keyboard else self.input_state_manager.update_mouse_state
+        update_method(stroke=stroke, is_hardware=True)
 
         is_suppress = False
         # Call registered listeners; any listener returning True suppresses input
         for listener in self._listeners:
             is_suppress |= listener(device, stroke)
 
-        is_key_down = not stroke.flags & KeyState.UP
-        is_key_pressed = self.input_state_manager.is_pressed(stroke.code, False)
+        is_down = False
+        is_pressed = False
 
-        # If not suppressed and key is down or already pressed by software, resend input and update software state
-        if not is_suppress and (is_key_down or is_key_pressed):
-            self.input_state_manager.update_key_state(stroke=stroke, is_hardware=False)
+        # Process keyboard stroke
+        if isinstance(stroke, KeyStroke):
+            self.last_active_keyboard = device
+            is_down = not stroke.flags & KeyState.UP
+            is_pressed = self.input_state_manager.is_pressed(stroke.code, False)
+
+        # Process mouse stroke
+        elif isinstance(stroke, MouseStroke):
+            self.last_active_mouse = device
+            is_down = MouseState(stroke.button_flags).name.endswith('_DOWN')
+            is_pressed = self.input_state_manager.is_pressed(MouseButton(stroke.button_flags), False)
+
+        # If not suppressed and input is down or already pressed by software, resend input and update software state
+        if not is_suppress and (is_down or is_pressed):
+            update_method(stroke=stroke, is_hardware=False)
             device.send(stroke)
 
         return InputEventResult(device.device_path, stroke, is_suppress)
 
     def close(self):
         """Closes all opened devices and clears the device list."""
-        for device in self.devices:
+        for device in self._devices:
             device.close()
-        self.devices.clear()
+        self._devices.clear()
 
     def add_event_listener(self, callback: Callable[[Device, KeyStroke | MouseStroke], bool]):
         """Registers a callback listener that receives input strokes.

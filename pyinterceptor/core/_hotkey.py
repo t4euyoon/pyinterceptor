@@ -1,3 +1,4 @@
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Set
 
@@ -79,6 +80,8 @@ class HotkeyManager:
             mouse (bool): Enable mouse input interception (default False).
         """
         self._listening = False
+        self._listen_thread: threading.Thread | None = None
+        self._stop_event: threading.Event | None = None
         self.hotkeys: set[Hotkey] = set()
 
         self._executor = ThreadPoolExecutor()
@@ -91,6 +94,44 @@ class HotkeyManager:
         self._filter_mouse = mouse
 
         self.interception.add_event_listener(self.process_key_event)
+
+    def __enter__(self):
+        """Enables hotkey listening and starts the listening thread.
+        """
+        self.listen()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Disables hotkey listening and cleans up resources.
+        """
+        self.close()
+
+    def listen(self):
+        """Enables hotkey listening and starts the listening thread."""
+        if self._filter_keyboard:
+            self.interception.set_filter_keyboard()
+        if self._filter_mouse:
+            self.interception.set_filter_mouse()
+
+        self._stop_event = threading.Event()
+        self._listen_thread = threading.Thread(target=self._loop, args=(self._stop_event,))
+        self._listen_thread.daemon = True
+        self._listen_thread.start()
+
+    def close(self):
+        """Disables hotkey listening and cleans up resources."""
+        if self._stop_event:
+            self._stop_event.set()
+        if self._listen_thread:
+            self._listen_thread.join()
+        self.interception.set_filter_none()
+        self._executor.shutdown(wait=True)
+
+    def _loop(self, stop_event: threading.Event):
+        """Continuously listens for input events in a separate thread.
+        """
+        while not stop_event.is_set():
+            self.interception.receive()
 
     def register_hotkey(self, keys: list[Key], callback: CallbackType, allow_reentry=False) -> Hotkey:
         """Registers a new hotkey with the given keys and callback.
@@ -143,21 +184,6 @@ class HotkeyManager:
                 self._executor.submit(hotkey.run_callback, device, stroke, pressed_keys)
 
         return is_suppress
-
-    def listen(self):
-        """Continuously listens for input events and logs them.
-
-        This method blocks indefinitely.
-        """
-        if self._filter_keyboard:
-            self.interception.set_filter_keyboard()
-        if self._filter_mouse:
-            self.interception.set_filter_mouse()
-
-        self._listening = True
-
-        while self._listening:
-            self.interception.receive()
 
     def toggle_filter_keyboard(self, toggle: bool | None = None):
         """Toggle keyboard filter state.

@@ -128,6 +128,13 @@ class Interception:
             if device.is_mouse:
                 device.set_filter(filter_mouse_state)
 
+    def set_filter_none(self):
+        """
+        Resets the filter for all devices to none.
+        """
+        for device in self._devices:
+            device.set_filter(FilterKeyState.NONE if device.is_keyboard else FilterMouseState.NONE)
+
     def send(self, device: int | Device, stroke: KeyStroke | MouseStroke) -> bool:
         """Sends an input stroke to a specified device.
 

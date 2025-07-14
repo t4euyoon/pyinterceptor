@@ -35,17 +35,57 @@ def on_hotkey_pressed(device: Device, stroke: KeyStroke, pressed_keys: set[Key])
     print("Hotkey was pressed!")
 
 
-# Create a hotkey manager for keyboard
-hotkey_manager = HotkeyManager(keyboard=True)
+# Create a hotkey manager for keyboard and use it as a context manager
+with HotkeyManager(keyboard=True) as hotkey_manager:
+    # Register Ctrl+Shift+A as a hotkey
+    hotkey = hotkey_manager.register_hotkey([Key.LEFT_CTRL, Key.LEFT_SHIFT, Key.A], on_hotkey_pressed)
 
-# Register Ctrl+Shift+A as a hotkey
-hotkey = hotkey_manager.register_hotkey([Key.LEFT_CTRL, Key.LEFT_SHIFT, Key.A], on_hotkey_pressed)
+    # The manager automatically starts listening when entering the 'with' block
+    print("Listening for hotkeys... Press Ctrl+Shift+A")
 
-# Start listening for hotkeys
-hotkey_manager.listen()
+    # Keep the main thread alive to listen for hotkeys
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        pass
 
-# To unregister a hotkey
-# hotkey_manager.unregister_hotkey(hotkey)
+    # The manager automatically stops listening when exiting the 'with' block
+    # To unregister a hotkey (optional, as manager cleans up on exit)
+    # hotkey_manager.unregister_hotkey(hotkey)
+```
+
+### HotkeyManager without 'with' statement
+
+```python
+from pyinterceptor import HotkeyManager, Key, Device, KeyStroke
+import time
+
+def on_hotkey_pressed_no_with(device: Device, stroke: KeyStroke, pressed_keys: set[Key]):
+    print("Hotkey was pressed (without 'with' statement)!")
+
+# Create a hotkey manager instance
+hotkey_manager_no_with = HotkeyManager(keyboard=True)
+
+try:
+    # Manually start listening
+    hotkey_manager_no_with.listen()
+    print("Listening for hotkeys (without 'with' statement)... Press Ctrl+Shift+B")
+
+    # Register Ctrl+Shift+B as a hotkey
+    hotkey_no_with = hotkey_manager_no_with.register_hotkey([Key.LEFT_CTRL, Key.LEFT_SHIFT, Key.B], on_hotkey_pressed_no_with)
+
+    # Keep the main thread alive to listen for hotkeys
+    while True:
+        time.sleep(0.1) # Small delay to prevent busy-waiting
+except KeyboardInterrupt:
+    pass
+finally:
+    # Manually stop listening and clean up resources
+    if hotkey_manager_no_with:
+        hotkey_manager_no_with.close()
+    # To unregister a hotkey (optional)
+    # hotkey_manager_no_with.unregister_hotkey(hotkey_no_with)
 ```
 
 ### Simulating Keyboard Input

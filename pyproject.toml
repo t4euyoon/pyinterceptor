@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyinterceptor-hotkeys"
-version = "0.2.0"
+version = "0.2.1"
 description = "Python wrapper for Interception driver with hotkey support"
 authors = [
     { name = "t4eyoon", email = "utu9201@gmail.com" }

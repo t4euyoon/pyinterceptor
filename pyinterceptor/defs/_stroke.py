@@ -27,7 +27,7 @@ class KeyStroke(Structure):
         0xE100: KeyState.E1,
     }
 
-    def __init__(self, code: Key | int = 0, flags: KeyState | int = KeyState.DOWN, information: int = 1):
+    def __init__(self, code: Key | int = 0, flags: KeyState | int = KeyState.DOWN, information: int = 0):
         """
         Initializes a KeyStroke structure.
 
